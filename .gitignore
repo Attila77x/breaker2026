@@ -1,0 +1,4 @@
+# large reference render (regenerate with tools/render-wav.js) and the
+# original Suno export (music.mp3 at repo root is the one the game uses)
+tools/breaker-theme.wav
+tools/*.mp3

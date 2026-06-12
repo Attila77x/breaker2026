@@ -1,0 +1,81 @@
+X:1
+T:BREAKER theme (1993) - transcribed from TC.PAS musicdata
+C:as coded by Tatyo for PC speaker
+M:4/4
+L:1/8
+Q:1/4=180
+%%MIDI program 12 % marimba
+K:C
+%%score (Mel) (Bass)
+% --- bar 1 ---
+[V:Mel] E G c E G c E G |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 2 ---
+[V:Mel] c E G c z e z e |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |
+% --- bar 3 ---
+[V:Mel] E G c E G c E G |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 4 ---
+[V:Mel] c E G c z e z e |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |
+% --- bar 5 ---
+[V:Mel] F A c F A c F A |
+[V:Bass clef=bass] F, F, A, A, C C D D |
+% --- bar 6 ---
+[V:Mel] c F A c z f z f |
+[V:Bass clef=bass] _E _E D D C C A, A, |
+% --- bar 7 ---
+[V:Mel] E G c E G c E G |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 8 ---
+[V:Mel] c E G c z e z e |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |
+% --- bar 9 ---
+[V:Mel] G B d G B d G B |
+[V:Bass clef=bass] G, G, B, B, D D E E |
+% --- bar 10 ---
+[V:Mel] d G B d z d z d |
+[V:Bass clef=bass] F F E E D D B, B, |
+% --- bar 11 ---
+[V:Mel] c G G G ^F G A B |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 12 ---
+[V:Mel] c E G c z z z z |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |
+% --- bar 13 ---
+[V:Mel] c z A c z z _e d |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 14 ---
+[V:Mel] z G A c e z e z |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |
+% --- bar 15 ---
+[V:Mel] c z A c z z _e d |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 16 ---
+[V:Mel] z G A c e z e z |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |
+% --- bar 17 ---
+[V:Mel] c z A c z z _e d |
+[V:Bass clef=bass] F, F, A, A, C C D D |
+% --- bar 18 ---
+[V:Mel] z G A c e z e z |
+[V:Bass clef=bass] _E _E D D C C A, A, |
+% --- bar 19 ---
+[V:Mel] c z A c z z _e d |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 20 ---
+[V:Mel] z G A c e z e z |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |
+% --- bar 21 ---
+[V:Mel] c z A c z z _e d |
+[V:Bass clef=bass] G, G, B, B, D D E E |
+% --- bar 22 ---
+[V:Mel] z G A c e z e z |
+[V:Bass clef=bass] F F E E D D B, B, |
+% --- bar 23 ---
+[V:Mel] c z A c z z _e d |
+[V:Bass clef=bass] C, C, E, E, G, G, A, A, |
+% --- bar 24 ---
+[V:Mel] z G A c e z e z |
+[V:Bass clef=bass] _B, _B, A, A, G, G, E, E, |

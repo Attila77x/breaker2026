@@ -1,0 +1,48 @@
+bar  1 | melody: E4    G4*   C5    E4*   G4    C5*   E4    G4*  
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar  2 | melody: C5    E4*   G4*   C5    ·     E5    ·     E5   
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
+bar  3 | melody: E4    G4*   C5    E4*   G4    C5*   E4    G4*  
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar  4 | melody: C5    E4*   G4*   C5    ·     E5    ·     E5   
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
+bar  5 | melody: F4    A4*   C5    F4*   A4    C5*   F4    A4*  
+       |  bass:  F3    F3    A3    A3    C4    C4    D4    D4   
+bar  6 | melody: C5    F4*   A4*   C5    ·     F5    ·     F5   
+       |  bass:  Eb4   Eb4   D4    D4    C4    C4    A3    A3   
+bar  7 | melody: E4    G4*   C5    E4*   G4    C5*   E4    G4*  
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar  8 | melody: C5    E4*   G4*   C5    ·     E5    ·     E5   
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
+bar  9 | melody: G4    B4*   D5    G4*   B4    D5*   G4    B4*  
+       |  bass:  G3    G3    B3    B3    D4    D4    E4    E4   
+bar 10 | melody: D5    G4*   B4*   D5    ·     D5    ·     D5   
+       |  bass:  F4    F4    E4    E4    D4    D4    B3    B3   
+bar 11 | melody: C5    G4*   G4    G4*   F#4   G4*   A4    B4   
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar 12 | melody: C5    E4*   G4*   C5    ·     ·     ·     ·    
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
+bar 13 | melody: C5    ·     A4    C5    ·     ·     Eb5   D5   
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar 14 | melody: ·     G4*   A4*   C5*   E5    ·     E5    ·    
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
+bar 15 | melody: C5    ·     A4    C5    ·     ·     Eb5   D5   
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar 16 | melody: ·     G4*   A4*   C5*   E5    ·     E5    ·    
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
+bar 17 | melody: C5    ·     A4    C5    ·     ·     Eb5   D5   
+       |  bass:  F3    F3    A3    A3    C4    C4    D4    D4   
+bar 18 | melody: ·     G4*   A4*   C5*   E5    ·     E5    ·    
+       |  bass:  Eb4   Eb4   D4    D4    C4    C4    A3    A3   
+bar 19 | melody: C5    ·     A4    C5    ·     ·     Eb5   D5   
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar 20 | melody: ·     G4*   A4*   C5*   E5    ·     E5    ·    
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
+bar 21 | melody: C5    ·     A4    C5    ·     ·     Eb5   D5   
+       |  bass:  G3    G3    B3    B3    D4    D4    E4    E4   
+bar 22 | melody: ·     G4*   A4*   C5*   E5    ·     E5    ·    
+       |  bass:  F4    F4    E4    E4    D4    D4    B3    B3   
+bar 23 | melody: C5    ·     A4    C5    ·     ·     Eb5   D5   
+       |  bass:  C3    C3    E3    E3    G3    G3    A3    A3   
+bar 24 | melody: ·     G4*   A4*   C5*   E5    ·     E5    ·    
+       |  bass:  Bb3   Bb3   A3    A3    G3    G3    E3    E3   
