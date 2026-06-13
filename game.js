@@ -16,11 +16,13 @@ const FIELD_W = COLS * CW, FIELD_H = ROWS * CH;
 
 const MAXGHOST = 256;
 const NORMAL = 0, GLUE = 1, BIG = 2, MEGASHOOT = 3;     // shoottype
+const MAXBALLS = 10;                                     // multiball cap
+const MB_BRICK = 5;                                      // new "multiball dropper" brick code
 
 const RANGESTR = ['Beginner', 'Weak', 'Amateur', 'Very Poor', 'Poor', 'Average',
   'Smart', 'Advanced', 'Master', 'Excellent', 'Elite', 'Breaker'];
 const BNS = [5, 10, 20, 30, 50, 75, 150, 300];          // level bonus per skill
-const DT = 'LGEMXPF';                                    // dropping letters
+const DT = 'LGEMXPFB';                                   // dropping letters (B = multiball)
 const JT = [3, 8, 176, 1];                               // surprise morph targets
 
 const CTRL_NAMES = ['Left', 'Right', 'Fire', 'Pause', 'Sound', 'Music',
@@ -37,7 +39,7 @@ const LETTER_INFO = {
   L: { col: '#46e06b', name: 'Life' }, G: { col: '#2fd4c8', name: 'Glue' },
   E: { col: '#4f9bff', name: 'Enlarge' }, X: { col: '#9aa1ad', name: 'Reset' },
   M: { col: '#ff4f47', name: 'MegaShot' }, P: { col: '#ffd84d', name: 'Points' },
-  F: { col: '#ff9433', name: 'Fire' }
+  F: { col: '#ff9433', name: 'Fire' }, B: { col: '#b46bff', name: 'MultiBall' }
 };
 
 /* ============================== Utilities ============================== */
@@ -312,7 +314,7 @@ function loadoptions(useSaved) {
       return;
     } catch (e) { }
   }
-  skill = 5; pl = 1; sln = 200; entlife = false; sd = true; musicok = false;
+  skill = 5; pl = 1; sln = 100; entlife = false; sd = true; musicok = false;
   gs = Math.floor(sln / 2); kt = DEFAULT_KEYS.slice();
   musicSync();
 }
@@ -339,6 +341,11 @@ const delayArr = [0, 0, 0, 0, 0], nextrange = [0, 0, 0, 0, 0],
 
 // playgame-scope state
 let ur = 3, ux = 2, lx = 5, ly = 24, ix = 1, iy = -1, vux = 2, vlx = 5, vly = 24;
+// Multiball: `lx/ly/ix/iy` act as the "active ball register" so the ported
+// single-ball physics (alltest/balltest/breakertest/moveb) is reused unchanged;
+// moveball loads each ball into the register, runs the physics, stores it back.
+let balls = [];                 // {lx,ly,ix,iy, ax,ay,at, tr:[]}
+let curBallFell = false;        // set by alltest when the active ball drops out
 let nextlevel = false, normexit = true, gameover = false, shsize = 7;
 let g = [];                                  // ghosts
 let b = { kx: 0, ky: 0, x: 2, y: 2, bm: 0, exist: false, normal: false };
@@ -490,15 +497,17 @@ function drawFrame(c2) {
   c2.fillStyle = dg; c2.fillRect(CW, FIELD_H - 10, FIELD_W - 2 * CW, 10);
 }
 
-const BRICKY = new Set([1, 3, 4, 8, 15, 24, 30, 176, 177, 178, 219]);
+const BRICKY = new Set([1, 3, 4, 5, 8, 15, 24, 30, 176, 177, 178, 219]);
 
 function brickBaseColor(ch, attr) {
   const fg = attr & 15, bg = (attr >> 4) & 7;
   if (ch === 176 || ch === 177 || ch === 178) {
-    const t = ch === 176 ? 0.42 : ch === 177 ? 0.66 : 0.9;   // shade density: fg over bg
-    return mix(PAL[bg], PAL[fg], t);
+    // breakable tiers share ONE bright base colour (fg); the tier is told apart
+    // by pips + armour, not by colour, so players read "hits left" instantly.
+    return PAL[fg === 0 ? 7 : fg];
   }
-  if (ch === 219) return fg === 0 ? '#3c4350' : PAL[fg];
+  if (ch === 219) return '#454b57';                          // unbreakable: always gunmetal
+  if (ch === MB_BRICK) return bg === 0 ? '#7b3fb0' : PAL[bg]; // multiball brick: violet plate
   // glyph bricks: plate = background colour, icon = foreground
   return bg === 0 ? '#343b49' : PAL[bg];
 }
@@ -531,10 +540,11 @@ function getBrickSprite(ch, attr) {
   gl.addColorStop(0, 'rgba(255,255,255,0.30)'); gl.addColorStop(0.45, 'rgba(255,255,255,0.05)');
   gl.addColorStop(0.55, 'rgba(255,255,255,0)');
   c2.fillStyle = gl; c2.fillRect(bx, by, bw, bh * 0.55);
-  if (ch === 219) {   // brushed steel lines + hazard feel
-    c2.strokeStyle = 'rgba(255,255,255,0.05)';
-    for (let i = -h; i < w; i += 7) {
-      c2.beginPath(); c2.moveTo(i, h); c2.lineTo(i + h, 0); c2.stroke();
+  if (ch === 219) {   // unbreakable: amber/black diagonal HAZARD stripes
+    c2.lineWidth = 6;
+    c2.strokeStyle = 'rgba(255,190,60,0.30)';
+    for (let i = -h; i < w + h; i += 16) {
+      c2.beginPath(); c2.moveTo(i, h + 4); c2.lineTo(i + h, -4); c2.stroke();
     }
   }
   c2.restore();
@@ -550,13 +560,28 @@ function getBrickSprite(ch, attr) {
     rg.addColorStop(0, 'rgba(255,255,255,0.9)'); rg.addColorStop(1, shade(base, -0.1));
     c2.fillStyle = rg; c2.beginPath(); c2.arc(rx, ry, 2.2, 0, 7); c2.fill();
   };
-  if (ch === 177) { rivet(8, h / 2 - 1); rivet(w - 8, h / 2 - 1); }
-  if (ch === 178) {
-    rivet(8, 6); rivet(w - 8, 6); rivet(8, h - 8); rivet(w - 8, h - 8);
-    c2.fillStyle = 'rgba(0,0,0,0.18)'; c2.fillRect(bx + 4, h / 2 - 2.5, bw - 8, 4);
-    c2.fillStyle = 'rgba(255,255,255,0.12)'; c2.fillRect(bx + 4, h / 2 - 2.5, bw - 8, 1.4);
+  // hit-tier markers: little pips along the top = number of hits still needed,
+  // so 2-hit vs 3-hit vs normal read at a glance (and pips drop as you damage it).
+  const pip = (n) => {
+    const r = 2.4, gap = 7.5, x0 = w / 2 - (n - 1) * gap / 2;
+    for (let p = 0; p < n; p++) {
+      const ppx = x0 + p * gap, ppy = 5.5;
+      c2.fillStyle = 'rgba(0,0,0,0.5)'; c2.beginPath(); c2.arc(ppx, ppy + 0.7, r, 0, 7); c2.fill();
+      const rg = c2.createRadialGradient(ppx - 0.7, ppy - 0.7, 0.2, ppx, ppy, r);
+      rg.addColorStop(0, '#ffffff'); rg.addColorStop(1, shade(base, 0.12));
+      c2.fillStyle = rg; c2.beginPath(); c2.arc(ppx, ppy, r, 0, 7); c2.fill();
+    }
+  };
+  if (ch === 177) { pip(2); }
+  if (ch === 178) {           // reinforced plate + corner bolts => visibly "tougher"
+    c2.fillStyle = 'rgba(0,0,0,0.18)'; roundRect(c2, bx + 5, by + 6, bw - 10, bh - 9, 3); c2.fill();
+    c2.strokeStyle = 'rgba(255,255,255,0.10)'; c2.lineWidth = 1; c2.stroke();
+    rivet(7, h - 7); rivet(w - 7, h - 7);
+    pip(3);
   }
-  if (ch === 219) { rivet(7, 6); rivet(w - 7, 6); rivet(7, h - 8); rivet(w - 7, h - 8); }
+  if (ch === 219) {           // heavy corner bolts on the hazard plate
+    rivet(7, 6); rivet(w - 7, 6); rivet(7, h - 8); rivet(w - 7, h - 8);
+  }
 
   // icons for special bricks
   const cx = w / 2, cy = (h - 1) / 2;
@@ -602,6 +627,16 @@ function getBrickSprite(ch, attr) {
       c2.beginPath(); c2.arc(cx + 2.6, cy - 2, 1.3, 0, 7); c2.fill();
       c2.lineWidth = 1.4;
       c2.beginPath(); c2.arc(cx, cy + 1.2, 3.6, 0.25 * Math.PI, 0.75 * Math.PI); c2.stroke();
+      break;
+    case MB_BRICK:   // multiball dropper — a cluster of little balls
+      c2.fillStyle = '#ffffff'; c2.shadowColor = '#d9b6ff'; c2.shadowBlur = 8;
+      for (const [dx, dy] of [[-5, 2.5], [5, 2.5], [0, -4.5]]) {
+        c2.beginPath(); c2.arc(cx + dx, cy + dy, 3.2, 0, 7); c2.fill();
+      }
+      c2.fillStyle = 'rgba(120,60,180,0.6)';
+      for (const [dx, dy] of [[-5, 2.5], [5, 2.5], [0, -4.5]]) {
+        c2.beginPath(); c2.arc(cx + dx + 0.9, cy + dy + 0.9, 1.1, 0, 7); c2.fill();
+      }
       break;
   }
   c2.restore();
@@ -701,7 +736,7 @@ function renderLoop(now) {
     if (d.exist) {
       const dk = Math.min(1, (now - dropAnim.t) / Math.max(1, 3 * delayArr[player]));
       const dy = (dropAnim.py + (d.y - dropAnim.py) * dk - 0.5) * CH;
-      drawLetter(ctx, (d.x - 0.5) * CW, dy, d.t, now);
+      drawPowerup(ctx, (d.x - 0.5) * CW, dy, d.t, now);
     }
 
     // ---- bomb ----
@@ -748,24 +783,22 @@ function renderLoop(now) {
       drawGhost(ctx, ((an.px + (gh.x - an.px) * gk) - 0.5) * CW, ((an.py + (gh.y - an.py) * gk) - 0.5) * CH, now, i);
     }
 
-    // ---- ball + trail ----
+    // ---- ball(s) + trail ----
     if (!gameover || holding) {
-      const bp = lerpPos(ballAnim.px, ballAnim.py, lx, ly, ballAnim.t, ballAnim.dur);
-      const px = (bp.x - 0.5) * CW, py = (bp.y - 0.5) * CH;
-      trail.push({ x: px, y: py, t: now });
-      while (trail.length && now - trail[0].t > 230) trail.shift();
-      for (const tr of trail) {
-        const a = 1 - (now - tr.t) / 230;
-        ctx.fillStyle = `rgba(140,190,255,${a * a * 0.3})`;
-        ctx.beginPath(); ctx.arc(tr.x, tr.y, 7 * a, 0, 7); ctx.fill();
+      if (holding || balls.length === 0) {     // pre-launch: single glued ball
+        const bp = lerpPos(ballAnim.px, ballAnim.py, lx, ly, ballAnim.t, ballAnim.dur);
+        drawBallGlow(ctx, (bp.x - 0.5) * CW, (bp.y - 0.5) * CH, now, trail);
+      } else {                                  // active play: the whole fleet
+        trail.length = 0;
+        const dur = Math.max(1, 3 * delayArr[player]);
+        for (const ball of balls) {
+          if (!ball.tr) ball.tr = [];
+          const k = Math.min(1, (now - (ball.at || now)) / dur);
+          const ipx = (ball.ax + (ball.lx - ball.ax) * k - 0.5) * CW;
+          const ipy = (ball.ay + (ball.ly - ball.ay) * k - 0.5) * CH;
+          drawBallGlow(ctx, ipx, ipy, now, ball.tr);
+        }
       }
-      ctx.save();
-      ctx.shadowColor = '#9cc8ff'; ctx.shadowBlur = 14;
-      const gr = ctx.createRadialGradient(px - 2.5, py - 3, 1, px, py, 8);
-      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.55, '#dceaff'); gr.addColorStop(1, '#7fa8e8');
-      ctx.fillStyle = gr;
-      ctx.beginPath(); ctx.arc(px, py, 7.4, 0, 7); ctx.fill();
-      ctx.restore();
     } else trail.length = 0;
   } else { trail.length = 0; ghostAnim.clear(); }
 
@@ -830,22 +863,113 @@ function drawPaddle(c2, px, py, w, now) {
   c2.restore();
 }
 
-function drawLetter(c2, px, py, t, now) {
+// Each power-up gets its own little glowing icon-capsule (in the same spirit as
+// the bomb sprite) instead of a bare letter, so they read at a glance.
+function drawPowerup(c2, px, py, t, now) {
   const info = LETTER_INFO[t] || { col: '#fff' };
   const sway = Math.sin(now / 200) * 1.5;
   c2.save();
   c2.translate(px + sway, py);
-  c2.shadowColor = info.col; c2.shadowBlur = 10;
-  const gr = c2.createLinearGradient(0, -10, 0, 10);
-  gr.addColorStop(0, shade(info.col, 0.45)); gr.addColorStop(0.5, info.col); gr.addColorStop(1, shade(info.col, -0.4));
+
+  // capsule body
+  c2.shadowColor = info.col; c2.shadowBlur = 11;
+  const gr = c2.createLinearGradient(0, -11, 0, 11);
+  gr.addColorStop(0, shade(info.col, 0.5)); gr.addColorStop(0.5, info.col); gr.addColorStop(1, shade(info.col, -0.42));
   c2.fillStyle = gr;
-  roundRect(c2, -8, -10.5, 16, 21, 7); c2.fill();
+  roundRect(c2, -9, -11, 18, 22, 8); c2.fill();
   c2.shadowBlur = 0;
-  c2.strokeStyle = 'rgba(255,255,255,0.55)'; c2.lineWidth = 1;
-  roundRect(c2, -7.5, -10, 15, 20, 6.5); c2.stroke();
-  c2.fillStyle = '#10131c';
-  c2.font = 'bold 13px Verdana,system-ui'; c2.textAlign = 'center'; c2.textBaseline = 'middle';
-  c2.fillText(t, 0, 1);
+  c2.strokeStyle = 'rgba(255,255,255,0.6)'; c2.lineWidth = 1;
+  roundRect(c2, -8.4, -10.4, 16.8, 20.8, 7.4); c2.stroke();
+  // top gloss
+  c2.save(); roundRect(c2, -9, -11, 18, 22, 8); c2.clip();
+  const gl = c2.createLinearGradient(0, -11, 0, 2);
+  gl.addColorStop(0, 'rgba(255,255,255,0.5)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+  c2.fillStyle = gl; c2.fillRect(-9, -11, 18, 13); c2.restore();
+
+  // icon, drawn dark for contrast on the bright capsule
+  const ink = '#1a1320';
+  c2.strokeStyle = ink; c2.fillStyle = ink; c2.lineWidth = 1.8;
+  c2.lineJoin = 'round'; c2.lineCap = 'round';
+  switch (t) {
+    case 'L':   // extra life — heart with a plus
+      c2.beginPath();
+      c2.moveTo(0, 6.5);
+      c2.bezierCurveTo(-8, 0, -5, -6.5, 0, -2.2);
+      c2.bezierCurveTo(5, -6.5, 8, 0, 0, 6.5);
+      c2.fill();
+      c2.strokeStyle = info.col; c2.lineWidth = 1.6;
+      c2.beginPath(); c2.moveTo(0, -1.2); c2.lineTo(0, 3.2); c2.moveTo(-2.2, 1); c2.lineTo(2.2, 1); c2.stroke();
+      break;
+    case 'G':   // glue — sticky droplet
+      c2.beginPath(); c2.arc(0, 2, 5, 0, 7); c2.fill();
+      c2.beginPath(); c2.moveTo(-3.4, -1); c2.quadraticCurveTo(0, -10, 3.4, -1); c2.closePath(); c2.fill();
+      c2.fillStyle = info.col;
+      c2.beginPath(); c2.arc(-1.5, 1, 1.5, 0, 7); c2.fill();
+      break;
+    case 'E':   // enlarge — wide bar with outward arrows
+      c2.fillRect(-5, -1.6, 10, 3.2);
+      c2.beginPath(); c2.moveTo(-5, 0); c2.lineTo(-8.5, 0); c2.moveTo(5, 0); c2.lineTo(8.5, 0); c2.stroke();
+      c2.beginPath(); c2.moveTo(-6, -2.6); c2.lineTo(-8.8, 0); c2.lineTo(-6, 2.6);
+      c2.moveTo(6, -2.6); c2.lineTo(8.8, 0); c2.lineTo(6, 2.6); c2.stroke();
+      break;
+    case 'X':   // reset — bold X
+      c2.lineWidth = 2.6;
+      c2.beginPath(); c2.moveTo(-4.5, -4.5); c2.lineTo(4.5, 4.5);
+      c2.moveTo(4.5, -4.5); c2.lineTo(-4.5, 4.5); c2.stroke();
+      break;
+    case 'M': {  // megashot — explosive starburst
+      c2.beginPath();
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4, r = (k % 2 ? 2.6 : 7);
+        const fx = Math.cos(a) * r, fy = Math.sin(a) * r;
+        k ? c2.lineTo(fx, fy) : c2.moveTo(fx, fy);
+      }
+      c2.closePath(); c2.fill();
+      break;
+    }
+    case 'P':   // points — five-point star
+      c2.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const a = -Math.PI / 2 + k * Math.PI / 5, r = (k % 2 ? 3 : 7);
+        const fx = Math.cos(a) * r, fy = Math.sin(a) * r;
+        k ? c2.lineTo(fx, fy) : c2.moveTo(fx, fy);
+      }
+      c2.closePath(); c2.fill();
+      break;
+    case 'F':   // fire — upward bullet/flame
+      c2.beginPath();
+      c2.moveTo(0, -7); c2.quadraticCurveTo(4.5, -1, 3, 3.5);
+      c2.quadraticCurveTo(0, 7, -3, 3.5); c2.quadraticCurveTo(-4.5, -1, 0, -7);
+      c2.fill();
+      c2.fillStyle = info.col;
+      c2.beginPath(); c2.moveTo(0, -1); c2.quadraticCurveTo(2, 2, 0, 4); c2.quadraticCurveTo(-2, 2, 0, -1); c2.fill();
+      break;
+    case 'B':   // multiball — three little balls
+      for (const [dx, dy] of [[-4, 3], [4, 3], [0, -4]]) {
+        c2.fillStyle = ink; c2.beginPath(); c2.arc(dx, dy, 3.1, 0, 7); c2.fill();
+        c2.fillStyle = 'rgba(255,255,255,0.85)'; c2.beginPath(); c2.arc(dx - 0.9, dy - 0.9, 1, 0, 7); c2.fill();
+      }
+      break;
+  }
+  c2.restore();
+}
+
+function drawBallGlow(c2, px, py, now, tr) {
+  if (tr) {
+    tr.push({ x: px, y: py, t: now });
+    while (tr.length && now - tr[0].t > 230) tr.shift();
+    for (const p of tr) {
+      const a = 1 - (now - p.t) / 230;
+      c2.fillStyle = `rgba(140,190,255,${a * a * 0.3})`;
+      c2.beginPath(); c2.arc(p.x, p.y, 7 * a, 0, 7); c2.fill();
+    }
+  }
+  c2.save();
+  c2.shadowColor = '#9cc8ff'; c2.shadowBlur = 14;
+  const gr = c2.createRadialGradient(px - 2.5, py - 3, 1, px, py, 8);
+  gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.55, '#dceaff'); gr.addColorStop(1, '#7fa8e8');
+  c2.fillStyle = gr;
+  c2.beginPath(); c2.arc(px, py, 7.4, 0, 7); c2.fill();
   c2.restore();
 }
 
@@ -878,6 +1002,7 @@ function updateHUD() {
   setHud('h-player', String(player));
   setHud('h-score', String(score[player] || 0));
   setHud('h-bricks', inPlay ? String(Math.max(0, db)) : '-');
+  setHud('h-balls', inPlay ? String(Math.max(1, balls.length)) : '-');
   setHud('h-lives', entlife ? '∞' : String(life[player] || 0));
   setHud('h-range', RANGESTR[(rangeArr[player] || 1) - 1]);
   setHud('h-shoot', f.can ? 'Yes' : 'No');
@@ -952,9 +1077,9 @@ function fillbrick(x, y, t, c) {
   }
 }
 
-function startletter(tx, ty) {
+function startletter(tx, ty, forced) {
   d.x = tx + random(4); d.y = ty;
-  d.t = DT[random(DT.length)];
+  d.t = forced || DT[random(DT.length)];
   d.exist = true; d.up1 = 32; d.up2 = 7;
   sscr(d.y, d.x, 1, d.t.charCodeAt(0)); sscr(d.y, d.x, 2, 14);
   dropAnim.py = d.y; dropAnim.t = performance.now();
@@ -1006,6 +1131,10 @@ function brick(ty, tx) {
       score[player] += Math.trunc(rnd() * 10) + 5;
       fillbrick(tx, ty, 32, 7); db--;
       break;
+    case MB_BRICK:   // multiball dropper: breaks and reliably drops a 'B' letter
+      fillbrick(tx, ty, 32, 7); db--; score[player] += 2;
+      if (!d.exist) startletter(tx, ty, 'B');
+      break;
     case 1: {
       let j = 0; db--;
       for (let i = 0; i < MAXGHOST; i++) {
@@ -1052,7 +1181,8 @@ async function breakertest() {
       ix = -ix; iy = -1;          // 45° end: straight back where it came from
     }
     if (lx > ux && lx < ux + shsize - 1) iy = -1;
-    if (s === GLUE && ((lx >= ux + 1 && lx <= ux + shsize - 2) ||
+    if (s === GLUE && balls.length <= 1 &&        // glue re-aim only with one ball
+      ((lx >= ux + 1 && lx <= ux + shsize - 2) ||
       (lx === ux && ix === 1) || (lx === shsize - 1 && ix === -1))) {
       ur = lx - ux;
       if (f.exist) { f.exist = false; clearthing(f.x, f.y); }
@@ -1070,7 +1200,7 @@ async function alltest() {
   lx += ix; ly += iy;
   if (ly > 24) {
     sscr(vly, vlx, 1, 32); sscr(vly, vlx, 2, 7);
-    await declives();
+    curBallFell = true;          // moveball decides: drop this ball, or lose a life
   } else if (ly < 22) balltest();
   if (lx === 2) ix = 1;
   if (lx === 49) ix = -1;
@@ -1078,15 +1208,53 @@ async function alltest() {
 }
 
 async function moveball() {
-  vlx = lx; vly = ly;
-  const vix = ix, viy = iy;
-  await alltest();
-  sscr(vly, vlx, 1, 32); sscr(vly, vlx, 2, 7);
-  if (!gameover) {
+  for (let bi = 0; bi < balls.length; bi++) {
+    const ball = balls[bi];
+    lx = ball.lx; ly = ball.ly; ix = ball.ix; iy = ball.iy;   // load register
+    vlx = lx; vly = ly;
+    const vix = ix, viy = iy;
+    curBallFell = false;
+    await alltest();
+    sscr(vly, vlx, 1, 32); sscr(vly, vlx, 2, 7);
+    if (curBallFell) {
+      if (balls.length > 1) {            // still have balls -> just lose this one
+        balls.splice(bi, 1); bi--;
+        snd(360, 7);
+        continue;
+      }
+      await declives();                  // last ball -> lose a life
+      balls.length = 0;
+      return;
+    }
+    if (gameover) { balls.length = 0; return; }   // level cleared / quit mid-bounce
     sscr(ly, lx, 1, 9); sscr(ly, lx, 2, 15);
-    ballMoved(vlx, vly, 3 * delayArr[player]);
+    if (ix !== vix || iy !== viy) { snd(800, 2); snd(1000, 2, 2); }
+    ball.lx = lx; ball.ly = ly; ball.ix = ix; ball.iy = iy;   // store back
+    ball.ax = vlx; ball.ay = vly; ball.at = performance.now();
   }
-  if (ix !== vix || iy !== viy) { snd(800, 2); snd(1000, 2, 2); }
+}
+
+// add n extra balls (multiball power-up), capped at MAXBALLS; they spring from
+// an existing ball, fanning upward so they don't instantly drop.
+function addBalls(n) {
+  const origin = balls[0] || { lx: ux + Math.floor(shsize / 2), ly: 22, ix: 1 };
+  for (let k = 0; k < n && balls.length < MAXBALLS; k++) {
+    const dir = balls.length % 2 === 0 ? 1 : -1;
+    balls.push({
+      lx: origin.lx, ly: Math.max(3, origin.ly), ix: dir, iy: -1,
+      ax: origin.lx, ay: origin.ly, at: performance.now(), tr: []
+    });
+  }
+}
+
+// a projectile struck a ball glyph at (px,py): run moveb on THAT ball.
+function pushBallAt(px, py, dir) {
+  const idx = balls.findIndex(bb => bb.lx === px && bb.ly === py);
+  if (idx < 0) { lx = px; ly = py; moveb(dir); return; }
+  const ball = balls[idx];
+  lx = ball.lx; ly = ball.ly; ix = ball.ix; iy = ball.iy;
+  moveb(dir);
+  ball.lx = lx; ball.ly = ly; ball.ix = ix; ball.iy = iy; ball.at = performance.now();
 }
 
 function moveb(i) {        // ball pushed by bullet (-1) or bomb (+1)
@@ -1123,7 +1291,7 @@ function moveshoot() {
   clearthing(f.x, f.y);
   f.y--;
   bangtest();
-  if (gscr(f.y, f.x, 1) === 9) moveb(-1);
+  if (gscr(f.y, f.x, 1) === 9) pushBallAt(f.x, f.y, -1);
   if (gscr(f.y, f.x, 1) === 2) {
     for (let i = 0; i < MAXGHOST; i++) {
       const gh = g[i];
@@ -1156,7 +1324,7 @@ function movemegashoot() {
     case 31:
       if (gscr(b.y, b.x, 1) === 31) { clearthing(b.x, b.y); b.exist = false; }
       break;
-    case 9: moveb(-1); break;
+    case 9: pushBallAt(m.x, m.y, -1); break;
     case 2:
       for (let i = 0; i < MAXGHOST; i++) {
         const gh = g[i];
@@ -1168,13 +1336,13 @@ function movemegashoot() {
         }
       }
       break;
-    case 1: case 3: case 4: case 8: case 15: case 24: case 30:
+    case 1: case 3: case 4: case 5: case 8: case 15: case 24: case 30:
     case 176: case 177: case 178: case 219: {
       snd(2000, 5);
       switch (gsv) {
         case 4: case 176: case 3: case 8: case 24:
           brick(m.y, m.x); break;
-        case 177: case 178: case 1: case 15:
+        case 177: case 178: case 1: case 5: case 15:
           db--; break;
         case 30:
           if (b.exist && b.ky === m.y && searchbrick(m.y, m.x) === b.kx) b.normal = false;
@@ -1202,7 +1370,7 @@ async function movebomb() {
   const gsv = gscr(b.y, b.x, 1);
   switch (gsv) {
     case 9:
-      nextbomb(); moveb(1); break;
+      nextbomb(); pushBallAt(b.x, b.y, 1); break;
     case 2:
       for (let i = 0; i < MAXGHOST; i++) {
         const gh = g[i];
@@ -1265,6 +1433,10 @@ function droppingthing() {
         writescore();
         s = NORMAL;
         snd(2000, 3); snd(1000, 4, 3); snd(3000, 2, 7);
+        break;
+      case 'B':   // multiball: +2 balls (cap 10); leaves paddle state untouched
+        addBalls(2);
+        snd(1200, 4); snd(1800, 4, 4); snd(2500, 6, 8);
         break;
     }
     const cc = cellCenter(d.x, 24);
@@ -1478,6 +1650,8 @@ function endtest() {
     if (f.exist) clearthing(f.x, f.y);
     clearletter();
     if (m.exist) clearthing(m.x, m.y);
+    for (const ball of balls) clearthing(ball.lx, ball.ly);
+    balls.length = 0;
     fillline(2, 25, 1, 48, 32);
   }
 }
@@ -1543,8 +1717,11 @@ async function playgame() {
     nextlevel = false; gameover = false; pki = false; s = NORMAL;
     f.can = false; shsize = 7; ur = Math.floor(shsize / 2); normexit = true;
     lx = 5; iy = -1; ix = 1 - Math.trunc(rnd() * 2) * 2;
+    balls = [];
     syncClock();
     await movetostart();
+    // launch: the single glued ball becomes the head of the fleet
+    if (!gameover) balls = [{ lx, ly, ix, iy: -1, ax: lx, ay: ly, at: performance.now(), tr: [] }];
     // Original stopped the music here because the PC speaker couldn't play music
     // and SFX at once. On separate WebAudio chains they mix fine, so the
     // soundtrack keeps playing through active play (user request).
@@ -1868,7 +2045,7 @@ async function game() {
       do {
         normquit = true;
         level++;
-        loadlevel = ll();
+        loadlevel = ((level - 1) % lvn) + 1;     // sequential 1..lvn (no group shuffle)
         for (player = 1; player <= pl; player++) {
           if (life[player] > 0) await playgame();
           if (level % 5 === 0 && life[player] > 0) life[player]++;
